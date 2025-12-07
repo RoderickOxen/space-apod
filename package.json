@@ -1,0 +1,14 @@
+{
+  "name": "apod-phone-site",
+  "version": "1.0.0",
+  "description": "Astronomy Picture of the Day site served from my phone",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "node-fetch": "^2.7.0"
+  }
+}
+
