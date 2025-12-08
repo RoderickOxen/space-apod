@@ -177,12 +177,29 @@
   </div>
 
 <script>
+function normalizeApod(raw) {
+  const mediaType = raw.mediaType || raw.media_type;
+
+  return {
+    mediaType,
+    // se for imagem, usa hdurl ou url
+    hdImageUrl: raw.hdImageUrl || raw.hdurl || null,
+    imageUrl: raw.imageUrl || raw.url || null,
+    // se for vídeo, também vem em `url`
+    mediaUrl: raw.mediaUrl || raw.url || null,
+    title: raw.title,
+    explanation: raw.explanation,
+    date: raw.date,
+  };
+}
+
 async function loadApod(mode, date) {
   const statusEl = document.getElementById("status");
   try {
-    let url = mode === "date" && date ?
-      `/space/apod/date?date=${encodeURIComponent(date)}` :
-      "/space/apod/today";
+    let url =
+      mode === "date" && date
+        ? `/space/apod/date?date=${encodeURIComponent(date)}`
+        : "/space/apod/today";
 
     statusEl.textContent = "Loading APOD…";
 
@@ -190,8 +207,10 @@ async function loadApod(mode, date) {
     const data = await res.json();
 
     if (!res.ok) throw new Error(data.error || "API error");
-    setApodOnPage(data, mode);
 
+    const apod = normalizeApod(data);
+    console.log("APOD received:", apod); // para veres no DevTools
+    setApodOnPage(apod, mode);
   } catch (err) {
     console.error(err);
     statusEl.textContent = "FAILED TO LOAD APOD 😅";
@@ -212,11 +231,12 @@ function setApodOnPage(apod, mode) {
   videoBgEl.style.display = "none";
 
   if (mediaType === "image") {
-    bgEl.style.backgroundImage =
-      `url("${apod.hdImageUrl || apod.imageUrl}")`;
+    bgEl.style.backgroundImage = `url("${apod.hdImageUrl || apod.imageUrl}")`;
   } else if (mediaType === "video") {
     const iframe = document.createElement("iframe");
-    iframe.src = apod.mediaUrl + "?autoplay=0&mute=0&controls=1&playsinline=1&loop=1";
+    iframe.src =
+      apod.mediaUrl +
+      "?autoplay=0&mute=0&controls=1&playsinline=1&loop=1";
     iframe.allow = "autoplay; encrypted-media; fullscreen";
     iframe.allowFullscreen = true;
 
@@ -226,8 +246,6 @@ function setApodOnPage(apod, mode) {
 
   titleEl.textContent = apod.title;
   dateEl.textContent = apod.date ? `DATE: ${apod.date}` : "";
-
-  // Explanation (first sentence)
   expEl.textContent =
     apod.explanation ? apod.explanation.split(".")[0] + "." : "";
 
@@ -254,6 +272,7 @@ function initDatePicker() {
 initDatePicker();
 loadApod("today");
 </script>
+
 
 </body>
 </html>
