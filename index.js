@@ -126,6 +126,17 @@ app.get("/space/apod/date", async (req, res) => {
   }
 });
 
+app.get("/debug/apod-key", (req, res) => {
+  const key = process.env.NASA_API_KEY || "DEMO_KEY";
+  const isDemo = key === "DEMO_KEY";
+
+  res.json({
+    usingDemoKey: isDemo,
+    source: isDemo ? "fallback DEMO_KEY" : "env var NASA_API_KEY",
+    keyPreview: isDemo ? "DEMO_KEY" : key.slice(0, 4) + "***", // só os primeiros 4 chars
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`✅ Server running on http://localhost:${PORT}`);
   console.log("   - Website:             http://localhost:%d/", PORT);
