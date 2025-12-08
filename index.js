@@ -4,16 +4,28 @@ const fetch = require("node-fetch"); // v2
 const app = express();
 const PORT = process.env.PORT || 8787;
 
-// ⚠️ Put your own key here or export NASA_API_KEY in the shell
+// Put your own key here or export NASA_API_KEY in the shell
 const NASA_API_KEY = process.env.NASA_API_KEY || "DEMO_KEY";
 
-// 1) Serve static files (your website) from ./public
+// Serve static files (your website) from ./public
 app.use(express.static("public"));
 
 /**
  * Helper to call NASA APOD.
  * If `date` is provided, it must be "YYYY-MM-DD".
  * If `date` is undefined, NASA returns today's APOD.
+ *
+ * For images:
+ *   {
+ *     date, title, explanation, mediaType: "image",
+ *     imageUrl, hdImageUrl, gifUrl?, copyright, source
+ *   }
+ *
+ * For videos:
+ *   {
+ *     date, title, explanation, mediaType: "video",
+ *     mediaUrl, copyright, source
+ *   }
  */
 async function fetchApod(date) {
   const params = new URLSearchParams({ api_key: NASA_API_KEY });
@@ -28,7 +40,6 @@ async function fetchApod(date) {
   const text = await res.text();
 
   if (!res.ok) {
-    // Bubble up enough info so the route can distinguish 400 vs others
     const err = new Error(
       `NASA APOD error: ${res.status} ${text.slice(0, 200)}`
     );
@@ -37,25 +48,44 @@ async function fetchApod(date) {
   }
 
   const data = JSON.parse(text);
+  const mediaType = data.media_type || "image";
 
-  if (data.media_type !== "image") {
-    const err = new Error(`APOD media_type is ${data.media_type}, not image`);
-    err.statusCode = 502;
-    throw err;
-  }
-
-  return {
+  const base = {
     date: data.date,
     title: data.title,
     explanation: data.explanation,
-    imageUrl: data.url,
-    hdImageUrl: data.hdurl || data.url,
     copyright: data.copyright || null,
+    mediaType, // "image" or "video"
     source: "nasa-apod"
+  };
+
+  if (mediaType === "image") {
+    // Prefer HD image, but avoid GIFs as background
+    let hdUrl = data.hdurl || data.url;
+    let gifUrl = null;
+
+    if (hdUrl && hdUrl.toLowerCase().endsWith(".gif")) {
+      // Keep gif separately, but don't use it as background image
+      gifUrl = hdUrl;
+      hdUrl = data.url;
+    }
+
+    return {
+      ...base,
+      imageUrl: data.url,
+      hdImageUrl: hdUrl,
+      gifUrl
+    };
+  }
+
+  // For video or any other unexpected type, return the URL as mediaUrl.
+  return {
+    ...base,
+    mediaUrl: data.url
   };
 }
 
-// --- 2) Endpoints ---
+// --- Endpoints ---
 
 // Picture of the day (today)
 app.get("/space/apod/today", async (req, res) => {
@@ -92,7 +122,6 @@ app.get("/space/apod/date", async (req, res) => {
       });
     }
 
-    // Other failures -> genuine gateway issue
     res.status(502).json({ error: "Failed to fetch APOD for given date" });
   }
 });
